@@ -39,6 +39,26 @@ static int cmd_q(char *args) {
   return -1;
 }
 
+static int cmd_si(char *args){
+  long int n;
+
+  if (args == NULL) {
+      cpu_exec(1);
+      return 0;
+  }
+  if (isdigit(*args)){
+    printf("bad args! Need zero or an integer.");
+    return 0;
+  }
+  n = strtol(args, &args, 10);
+  if(n <= 0){
+    printf("bad args! Need a positive integer.");
+    return 0;
+  }
+  cpu_exec(n);
+  return 0;
+}
+
 static int cmd_help(char *args);
 
 static struct {
@@ -49,8 +69,8 @@ static struct {
   { "help", "Display informations about all supported commands", cmd_help },
   { "c", "Continue the execution of the program", cmd_c },
   { "q", "Exit NEMU", cmd_q },
-
   /* TODO: Add more commands */
+  { "si", "Step one instruction exactly. Usage: si [N]. Argument N(deault is 1) means step N times", cmd_si}
 
 };
 
@@ -112,7 +132,7 @@ void sdb_mainloop() {
     int i;
     for (i = 0; i < NR_CMD; i ++) {
       if (strcmp(cmd, cmd_table[i].name) == 0) {
-        if (cmd_table[i].handler(args) < 0) { return; }
+        if (cmd_table[i].handler(args) < 0) { return; } // real exec func (including error exit)
         break;
       }
     }
