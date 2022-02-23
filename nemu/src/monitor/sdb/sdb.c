@@ -4,6 +4,7 @@
 #include <readline/history.h>
 #include "sdb.h"
 #include <utils.h>
+#include <memory/paddr.h>
 
 static int is_batch_mode = false;
 
@@ -57,7 +58,7 @@ static int cmd_si(char *args){
 static int cmd_info(char *args){
   char c = '\0';
   if(sscanf(args, "%c", &c) != 1){
-    printf("bad args! Need 'r' or 'w'.\n");
+    printf("Bad args! Need 'r' or 'w'.\n");
     return 0;
   }
 
@@ -67,7 +68,23 @@ static int cmd_info(char *args){
       break;
     }
     case 'w': break;
-    default: printf("bad args! Need 'r' or 'w'.\n"); break;
+    default: printf("Bad args! Need 'r' or 'w'.\n"); break;
+  }
+
+  return 0;
+}
+
+static int cmd_x(char *args){
+  int n;
+  paddr_t addr;
+  if(sscanf(args, "%d " FMT_PADDR, &n, &addr) != 2){
+    printf("Bad args! Need 2 args: [N] and [EXPR].");
+    return 0;
+  }
+  // TODO: need edge check
+  for(int i=0; i<n; i++, addr +=4){
+      word_t ret = paddr_read(addr, 4);
+      printf( FMT_PADDR ": " FMT_WORD "\n", addr,  ret);
   }
 
   return 0;
@@ -91,8 +108,12 @@ static struct {
              "Usage: info [r|w].\n"
              "\t* r: List of all registers and their contents.\n"
              "\t* w: List of all watch points and their contents.\n",
-     cmd_info}
-};
+     cmd_info},
+    {"x", "Examine memory. Usage: x N EXPR.\n"
+          "\t* N: The repeat count.\n"
+          "\t* EXPR: The address from expression.\n",
+     cmd_x}
+    };
 
 #define NR_CMD ARRLEN(cmd_table)
 
