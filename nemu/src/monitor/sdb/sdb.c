@@ -54,19 +54,44 @@ static int cmd_si(char *args){
   return 0;
 }
 
+static int cmd_info(char *args){
+  char c = '\0';
+  if(sscanf(args, "%c", &c) != 1){
+    printf("bad args! Need 'r' or 'w'.\n");
+    return 0;
+  }
+
+  switch(c){
+    case 'r': {
+      isa_reg_display();
+      break;
+    }
+    case 'w': break;
+    default: printf("bad args! Need 'r' or 'w'.\n"); break;
+  }
+
+  return 0;
+}
+
 static int cmd_help(char *args);
 
 static struct {
   const char *name;
   const char *description;
   int (*handler) (char *);
-} cmd_table [] = {
-  { "help", "Display informations about all supported commands", cmd_help },
-  { "c", "Continue the execution of the program", cmd_c },
-  { "q", "Exit NEMU", cmd_q },
-  /* TODO: Add more commands */
-  { "si", "Step one instruction exactly. Usage: si [N]. Argument N(deault is 1) means step N times", cmd_si}
-
+} cmd_table[] = {
+    {"help", "Display informations about all supported commands", cmd_help},
+    {"c", "Continue the execution of the program", cmd_c},
+    {"q", "Exit NEMU", cmd_q},
+    /* TODO: Add more commands */
+    {"si", "Step one instruction exactly. Usage: si [N].\n"
+           "\t* N: Argument N(deault is 1) means step N times",
+     cmd_si},
+    {"info", "Showing things about the program being debugged. "
+             "Usage: info [r|w].\n"
+             "\t* r: List of all registers and their contents.\n"
+             "\t* w: List of all watch points and their contents.\n",
+     cmd_info}
 };
 
 #define NR_CMD ARRLEN(cmd_table)
