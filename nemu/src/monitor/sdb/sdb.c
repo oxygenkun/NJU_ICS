@@ -47,12 +47,12 @@ static int cmd_si(char *args){
       return 0;
   }
   if (isdigit(*args)){
-    printf("bad args! Need zero or an integer.");
+    printf("bad args! Need a positive or noting.\n");
     return 0;
   }
   n = strtol(args, &args, 10);
   if(n <= 0){
-    printf("bad args! Need a positive integer.");
+    printf("bad args! Need a positive or noting.\n");
     return 0;
   }
   cpu_exec(n);
