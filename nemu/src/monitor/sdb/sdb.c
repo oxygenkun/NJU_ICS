@@ -40,18 +40,13 @@ static int cmd_q(char *args) {
 }
 
 static int cmd_si(char *args){
-  long int n;
-
   if (args == NULL) {
       cpu_exec(1);
       return 0;
   }
-  if (isdigit(*args)){
-    printf("bad args! Need a positive integer or noting.\n");
-    return 0;
-  }
-  n = strtol(args, &args, 10);
-  if(n <= 0){
+  
+  long int n = 0;
+  if(sscanf(args, "%ld", &n) != 1 || n < 0){
     printf("bad args! Need a positive integer or noting.\n");
     return 0;
   }
