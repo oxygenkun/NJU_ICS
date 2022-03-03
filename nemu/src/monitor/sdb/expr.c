@@ -4,12 +4,21 @@
  * Type 'man regex' for more information about POSIX regex functions.
  */
 #include <regex.h>
+#include <stdbool.h>  // bool support
+#include <stdio.h>    // sscanf support
+#include <inttypes.h> // u_int32_t sscanf macro support
 
 enum {
-  TK_NOTYPE = 256, TK_EQ,
-
-  /* TODO: Add more token types */
-
+  // not start from small number (0) as it will be the same in initial constructon
+  TK_NOTYPE = 256, 
+  TK_EQ,
+  TK_PLUS,
+  TK_MINUS,
+  TK_MULT,
+  TK_DIV,
+  TK_LP,
+  TK_RP,
+  TK_INT,
 };
 
 static struct rule {
@@ -17,13 +26,18 @@ static struct rule {
   int token_type;
 } rules[] = {
 
-  /* TODO: Add more rules.
-   * Pay attention to the precedence level of different rules.
-   */
-
-  {" +", TK_NOTYPE},    // spaces
-  {"\\+", '+'},         // plus
-  {"==", TK_EQ},        // equal
+    /* DONE: Add more rules.
+     * Pay attention to the precedence level of different rules.
+     */
+    {" +", TK_NOTYPE}, // spaces
+    {"==", TK_EQ},     // equal
+    {"\\+", TK_PLUS},  // plus
+    {"-", TK_MINUS},   // minus
+    {"\\*", TK_MULT},  // multiply
+    {"/", TK_DIV},     // divide
+    {"\\(", TK_LP},    // left parenthese
+    {"\\)", TK_RP},    // right parenthese
+    {"[[:digit:]]+", TK_INT}   // integer
 };
 
 #define NR_REGEX ARRLEN(rules)
@@ -57,33 +71,53 @@ static int nr_token __attribute__((used))  = 0;
 
 static bool make_token(char *e) {
   int position = 0;
-  int i;
   regmatch_t pmatch;
 
-  nr_token = 0;
-
   while (e[position] != '\0') {
+    int i;
     /* Try all rules one by one. */
     for (i = 0; i < NR_REGEX; i ++) {
       if (regexec(&re[i], e + position, 1, &pmatch, 0) == 0 && pmatch.rm_so == 0) {
         char *substr_start = e + position;
         int substr_len = pmatch.rm_eo;
-
+        int tk_type = rules[i].token_type;
         Log("match rules[%d] = \"%s\" at position %d with len %d: %.*s",
-            i, rules[i].regex, position, substr_len, substr_len, substr_start);
+           i, rules[i].regex, position, substr_len, substr_len, substr_start);
 
         position += substr_len;
 
-        /* TODO: Now a new token is recognized with rules[i]. Add codes
+        /* DONE: Now a new token is recognized with rules[i]. Add codes
          * to record the token in the array `tokens'. For certain types
          * of tokens, some extra actions should be performed.
          */
 
-        switch (rules[i].token_type) {
-          default: TODO();
+        switch(tk_type){
+          case TK_NOTYPE: break;
+          case TK_EQ:
+          case TK_PLUS:
+          case TK_MINUS:
+          case TK_MULT:
+          case TK_DIV:
+          case TK_LP:
+          case TK_RP:
+            tokens[nr_token].type = tk_type;
+            strncpy(tokens[nr_token].str, substr_start, substr_len);
+            nr_token++;
+            break;
+          case TK_INT:
+            if(substr_len >= 32){
+              printf("EXPR has a large number out of bound at position %d\n%s\n%*.s^\n", position, e, position, "");
+              return false;
+            }
+            tokens[nr_token].type = TK_INT;
+            strncpy(tokens[nr_token].str, substr_start, substr_len);
+            nr_token++;
+            break;
+          default:
+            printf("failed match token type!\n");
+            return false;
         }
-
-        break;
+        break; // break for-loop
       }
     }
 
@@ -96,15 +130,130 @@ static bool make_token(char *e) {
   return true;
 }
 
+bool check_parentheses(int p, int q) {
+  if (tokens[p].type != TK_LP || tokens[q].type != TK_RP){
+    return false;
+  }
+
+  for (int i = p, nr_parentheses = 0; i <= q; ++i) {
+    if (tokens[i].type == TK_LP) {
+      ++nr_parentheses;
+    } else if (tokens[i].type == TK_RP) {
+      --nr_parentheses;
+      if (nr_parentheses < 0) {break;}
+      else if (nr_parentheses == 0) {
+        // if right equals left, but i is not at the end, reutrn false.
+        // if right equals left and i is at the end, reutrn true.
+          return (i==q);
+      } // else continue
+    }
+  } // right less than left, return false.
+  return false;
+}
+
+int find_main_op(int p, int q) {
+  int op = -1; // the position of 主运算符 in the token expression;
+  int in_parentheses = 0;
+  // find main op (escape op in parentheses)
+  for (int i = p; i <= q; ++i) {
+    switch (tokens[i].type) {
+    case TK_LP:
+      ++in_parentheses;
+      break;
+    case TK_RP:
+      --in_parentheses;
+      break;
+    case TK_PLUS:
+    case TK_MINUS:
+      if (in_parentheses == 0) {
+        op = i;
+      }
+      break;
+    case TK_MULT:
+    case TK_DIV:
+      if (in_parentheses == 0 && op == -1) {
+        // 1. not in the parentheses
+        // 2. plus or minus not exist
+        op = i;
+      }
+      break;
+    default:
+      break;
+    }
+  }
+  return op;
+}
+
+// eval EXPR
+u_int32_t eval(int p, int q, bool* err){
+  if (*err) return 0;
+  if (p > q) {
+    *err = true;
+    return 0;
+  }else if (p == q) {
+    /* Single token.
+     * For now this token should be a number.
+     * Return the value of the number.
+     */
+    if(tokens[p].type!=TK_INT){
+      printf("bad expr: '%s'\n", tokens[p].str);
+      *err = true;
+      return 0;
+    }
+    u_int32_t ret;
+    sscanf(tokens[p].str,"%" SCNu32, &ret);
+    return ret;
+  }else if (check_parentheses(p, q) == true) {
+    /* The expression is surrounded by a matched pair of parentheses.
+     * If that is the case, just throw away the parentheses.
+     */
+    return eval(p + 1, q - 1, err);
+  }
+
+  // find main op
+  int op = find_main_op(p, q);
+  if(op==-1){
+    printf("Bad expr!\n");
+    *err=true;
+    return 0;
+  }
+
+  // compute
+  u_int32_t val1 = eval(p, op - 1, err);
+  u_int32_t val2 = eval(op + 1, q, err);
+  switch (tokens[op].type) {
+    case TK_PLUS: return val1 + val2;
+    case TK_MINUS: return val1 - val2;
+    case TK_MULT: return val1 * val2;
+    case TK_DIV: 
+      if (val2==0){
+        printf("Division by zero\n");
+        *err = true;
+        return 0;
+      }
+      return val1 / val2;
+    default: assert(0);
+  }
+}
+
 
 word_t expr(char *e, bool *success) {
-  if (!make_token(e)) {
+  if (!make_token(e) || nr_token <= 0) {
     *success = false;
     return 0;
   }
 
-  /* TODO: Insert codes to evaluate the expression. */
-  TODO();
+  /* Done: Insert codes to evaluate the expression. */
+  bool err = false; // true if EXPR is illegal
+  u_int32_t ret = eval(0,nr_token-1, &err);
+  *success = !err;
 
-  return 0;
+  // emptify tokens
+  for(int i=0; i<nr_token; ++i){
+    memset(tokens[i].str, '\0', 32);
+    tokens[i].type=0;
+  }
+  nr_token=0;
+  
+  return ret;
 }

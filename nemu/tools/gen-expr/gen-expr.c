@@ -16,8 +16,34 @@ static char *code_format =
 "  return 0; "
 "}";
 
+static uint position = 0;
+
+static u_int32_t choose(u_int32_t i){
+  return rand() % i;
+}
+
+static void gen_num(){
+  int len = sprintf(buf+position, "%u", choose(999));
+  position += len;
+}
+
+static void gen(char c){
+  buf[position] = c;
+  ++position;
+}
+
+static void gen_rand_op(){
+  char op[4] = {'+', '-', '*', '/'};
+  gen(op[choose(4)]);
+}
+
 static void gen_rand_expr() {
-  buf[0] = '\0';
+   switch (choose(3)) {
+    case 0: gen_num(); break;
+    case 1: gen('('); gen_rand_expr(); gen(')'); break;
+    //case 2: gen(' '); break;
+    default: gen_rand_expr(); gen_rand_op(); gen_rand_expr(); break;
+  }
 }
 
 int main(int argc, char *argv[]) {
@@ -29,6 +55,11 @@ int main(int argc, char *argv[]) {
   }
   int i;
   for (i = 0; i < loop; i ++) {
+    //init
+    memset(buf, '\0', 65536);
+    memset(code_buf, '\0', 65536 + 128);
+    position = 0;
+
     gen_rand_expr();
 
     sprintf(code_buf, code_format, buf);
@@ -45,7 +76,8 @@ int main(int argc, char *argv[]) {
     assert(fp != NULL);
 
     int result;
-    fscanf(fp, "%d", &result);
+    int success = fscanf(fp, "%d", &result);
+    assert(success==1);
     pclose(fp);
 
     printf("%u %s\n", result, buf);

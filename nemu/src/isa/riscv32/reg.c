@@ -1,5 +1,6 @@
 #include <isa.h>
 #include "local-include/reg.h"
+#include <common.h>
 
 const char *regs[] = {
   "$0", "ra", "sp", "gp", "tp", "t0", "t1", "t2",
@@ -9,6 +10,11 @@ const char *regs[] = {
 };
 
 void isa_reg_display() {
+  for(int n=0; n < 32; n++){
+    printf("%s\t\t" FMT_WORD "\t\t%d\n", reg_name(n, 0), gpr(n), gpr(n));
+  }
+  // TODO: print PC (real address)
+  //printf("PC\t\t%04x\t\t%d\n", )
 }
 
 word_t isa_reg_str2val(const char *s, bool *success) {
