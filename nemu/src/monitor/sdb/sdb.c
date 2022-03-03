@@ -90,6 +90,20 @@ static int cmd_x(char *args){
   return 0;
 }
 
+static int cmd_p(char *args){
+  if(args==NULL) {
+    printf("Bad args!\n");
+    return 0;
+  } 
+
+  bool success;
+  int ret = expr(args, &success);
+  
+  if(success)
+    printf("%d\n", ret);
+  return 0;
+}
+
 static int cmd_help(char *args);
 
 static struct {
@@ -112,7 +126,8 @@ static struct {
     {"x", "Examine memory. Usage: x N EXPR.\n"
           "\t* N: The repeat count.\n"
           "\t* EXPR: The address from expression.\n",
-     cmd_x}
+     cmd_x},
+    {"p", "Print value of expression EXPR. Usage: p EXPR.\n", cmd_p}
     };
 
 #define NR_CMD ARRLEN(cmd_table)
