@@ -100,7 +100,7 @@ static int cmd_p(char *args){
   int ret = expr(args, &success);
   
   if(success)
-    printf("%d\n", ret);
+    printf("%u\n", ret);
   return 0;
 }
 

@@ -7,11 +7,14 @@
 #include <stdbool.h>  // bool support
 #include <stdio.h>    // sscanf support
 #include <inttypes.h> // u_int32_t sscanf macro support
-
+#include <ctype.h>
+#include <memory/vaddr.h>
 enum {
   // not start from small number (0) as it will be the same in initial constructon
   TK_NOTYPE = 256, 
   TK_EQ,
+  TK_NEQ,
+  TK_AND,
   TK_PLUS,
   TK_MINUS,
   TK_MULT,
@@ -19,6 +22,9 @@ enum {
   TK_LP,
   TK_RP,
   TK_INT,
+  TK_HEX,
+  TK_REG,
+  TK_DEREF,
 };
 
 static struct rule {
@@ -29,15 +35,19 @@ static struct rule {
     /* DONE: Add more rules.
      * Pay attention to the precedence level of different rules.
      */
-    {" +", TK_NOTYPE}, // spaces
-    {"==", TK_EQ},     // equal
-    {"\\+", TK_PLUS},  // plus
-    {"-", TK_MINUS},   // minus
-    {"\\*", TK_MULT},  // multiply
-    {"/", TK_DIV},     // divide
-    {"\\(", TK_LP},    // left parenthese
-    {"\\)", TK_RP},    // right parenthese
-    {"[[:digit:]]+", TK_INT}   // integer
+    {" +", TK_NOTYPE},           // spaces
+    {"0x[[:xdigit:]]+", TK_HEX}, // hex number
+    {"\\$[[:alnum:]_]+", TK_REG},    // register var
+    {"[[:digit:]]+", TK_INT},    // integer
+    {"==", TK_EQ},               // equal
+    {"!=", TK_NEQ},
+    {"&&", TK_AND},
+    {"\\+", TK_PLUS},            // plus
+    {"-", TK_MINUS},             // minus
+    {"\\*", TK_MULT},            // multiply
+    {"/", TK_DIV},               // divide
+    {"\\(", TK_LP},              // left parenthese
+    {"\\)", TK_RP},              // right parentheseq
 };
 
 #define NR_REGEX ARRLEN(rules)
@@ -66,7 +76,7 @@ typedef struct token {
   char str[32];
 } Token;
 
-static Token tokens[32] __attribute__((used)) = {};
+static Token tokens[65535] __attribute__((used)) = {};
 static int nr_token __attribute__((used))  = 0;
 
 static bool make_token(char *e) {
@@ -91,32 +101,16 @@ static bool make_token(char *e) {
          * of tokens, some extra actions should be performed.
          */
 
-        switch(tk_type){
-          case TK_NOTYPE: break;
-          case TK_EQ:
-          case TK_PLUS:
-          case TK_MINUS:
-          case TK_MULT:
-          case TK_DIV:
-          case TK_LP:
-          case TK_RP:
-            tokens[nr_token].type = tk_type;
-            strncpy(tokens[nr_token].str, substr_start, substr_len);
-            nr_token++;
-            break;
-          case TK_INT:
-            if(substr_len >= 32){
-              printf("EXPR has a large number out of bound at position %d\n%s\n%*.s^\n", position, e, position, "");
-              return false;
-            }
-            tokens[nr_token].type = TK_INT;
-            strncpy(tokens[nr_token].str, substr_start, substr_len);
-            nr_token++;
-            break;
-          default:
-            printf("failed match token type!\n");
-            return false;
+        // additional check
+        if((tk_type == TK_INT || tk_type == TK_HEX)
+              && substr_len >= 32){
+          printf("EXPR has a large number out of bound at position %d\n%s\n%*.s^\n", position, e, position, "");
+          return false;
         }
+        tokens[nr_token].type = tk_type;
+        strncpy(tokens[nr_token].str, substr_start, substr_len);
+        nr_token++;
+
         break; // break for-loop
       }
     }
@@ -171,9 +165,10 @@ int find_main_op(int p, int q) {
       break;
     case TK_MULT:
     case TK_DIV:
-      if (in_parentheses == 0 && op == -1) {
+      if (in_parentheses == 0 &&
+          (op == -1 || tokens[op].type == TK_MULT || tokens[op].type == TK_DIV)) {
         // 1. not in the parentheses
-        // 2. plus or minus not exist
+        // 2. plus or minus not exist or pre op type is mult or div
         op = i;
       }
       break;
@@ -190,24 +185,49 @@ u_int32_t eval(int p, int q, bool* err){
   if (p > q) {
     *err = true;
     return 0;
-  }else if (p == q) {
+  } else if (p == q) {
     /* Single token.
      * For now this token should be a number.
      * Return the value of the number.
      */
-    if(tokens[p].type!=TK_INT){
+    u_int32_t ret;
+    switch (tokens[p].type) {
+    case TK_INT:
+      if (sscanf(tokens[p].str, "%" SCNu32, &ret) != 1) {
+        printf("parse failed: %s as INT\n", tokens[p].str);
+        *err = true;
+        return 0;
+      }
+      return ret;
+    case TK_HEX:
+      for (int i = 0; tokens[p].str[i] != '\0'; ++i) {
+        tokens[p].str[i] = tolower(tokens[p].str[i]);
+      }
+      if (sscanf(tokens[p].str, "%x", &ret) != 1) {
+        printf("parse failed: %s as HEX\n", tokens[p].str);
+        *err = true;
+        return 0;
+      }
+      return ret;
+    case TK_REG:
+      return isa_reg_str2val(tokens[p].str + 1, err);
+    default:
       printf("bad expr: '%s'\n", tokens[p].str);
       *err = true;
       return 0;
     }
-    u_int32_t ret;
-    sscanf(tokens[p].str,"%" SCNu32, &ret);
-    return ret;
-  }else if (check_parentheses(p, q) == true) {
+  } else if (check_parentheses(p, q) == true) {
     /* The expression is surrounded by a matched pair of parentheses.
      * If that is the case, just throw away the parentheses.
      */
     return eval(p + 1, q - 1, err);
+  } else if (tokens[p].type == TK_DEREF) {
+    u_int32_t ret = eval(p+1, q, err);
+    if(*err){
+      printf("derefference failed at position: %d\n", p+1);
+      return 0;
+    }
+    return vaddr_read(ret, 4);
   }
 
   // find main op
@@ -236,11 +256,22 @@ u_int32_t eval(int p, int q, bool* err){
   }
 }
 
+bool dereference_pre_type(int type){
+  return (type != TK_INT || type != TK_HEX || type != TK_REG || type != TK_RP);
+} 
 
 word_t expr(char *e, bool *success) {
   if (!make_token(e) || nr_token <= 0) {
     *success = false;
     return 0;
+  }
+
+  // dereference
+  for (int i = 0; i < nr_token; i++) {
+    if (tokens[i].type == TK_MULT &&
+        (i == 0 || dereference_pre_type(tokens[i - 1].type))) {
+      tokens[i].type = TK_DEREF;
+    }
   }
 
   /* Done: Insert codes to evaluate the expression. */
