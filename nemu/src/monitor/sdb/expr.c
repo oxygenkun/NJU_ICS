@@ -124,7 +124,7 @@ static bool make_token(char *e) {
   return true;
 }
 
-bool check_parentheses(int p, int q) {
+static bool check_parentheses(int p, int q) {
   if (tokens[p].type != TK_LP || tokens[q].type != TK_RP){
     return false;
   }
@@ -145,7 +145,7 @@ bool check_parentheses(int p, int q) {
   return false;
 }
 
-int find_main_op(int p, int q) {
+static int find_main_op(int p, int q) {
   int op = -1; // the position of 主运算符 in the token expression;
   int in_parentheses = 0;
   // find main op (escape op in parentheses)
@@ -180,7 +180,7 @@ int find_main_op(int p, int q) {
 }
 
 // eval EXPR
-u_int32_t eval(int p, int q, bool* err){
+static u_int32_t eval(int p, int q, bool* err){
   if (*err) return 0;
   if (p > q) {
     *err = true;
@@ -256,13 +256,23 @@ u_int32_t eval(int p, int q, bool* err){
   }
 }
 
-bool dereference_pre_type(int type){
+static bool dereference_pre_type(int type){
   return (type != TK_INT || type != TK_HEX || type != TK_REG || type != TK_RP);
 } 
+
+static void empty_process(){
+  // emptify tokens
+  for(int i=0; i<nr_token; ++i){
+    memset(tokens[i].str, '\0', 32);
+    tokens[i].type=0;
+  }
+  nr_token=0;
+}
 
 word_t expr(char *e, bool *success) {
   if (!make_token(e) || nr_token <= 0) {
     *success = false;
+    empty_process();
     return 0;
   }
 
@@ -279,12 +289,6 @@ word_t expr(char *e, bool *success) {
   u_int32_t ret = eval(0,nr_token-1, &err);
   *success = !err;
 
-  // emptify tokens
-  for(int i=0; i<nr_token; ++i){
-    memset(tokens[i].str, '\0', 32);
-    tokens[i].type=0;
-  }
-  nr_token=0;
-  
+  empty_process();
   return ret;
 }
