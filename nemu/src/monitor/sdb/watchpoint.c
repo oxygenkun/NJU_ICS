@@ -44,6 +44,9 @@ static WP* new_wp(){
 } 
 
 static void free_wp(WP *wp){
+  if(head == wp){
+    head = head->next;
+  }
   memset(wp->expr, 0, 1024);
   wp->value = 0;
   wp->next = free_;
