@@ -10,6 +10,9 @@ static int is_batch_mode = false;
 
 void init_regex();
 void init_wp_pool();
+bool add_wp(char*);
+void delete_wp(int);
+void wp_display();
 
 /* We use the `readline' library to provide more flexibility to read from stdin. */
 static char* rl_gets() {
@@ -63,11 +66,8 @@ static int cmd_info(char *args){
   }
 
   switch(c){
-    case 'r': {
-      isa_reg_display();
-      break;
-    }
-    case 'w': break;
+    case 'r': isa_reg_display(); break;
+    case 'w': wp_display(); break;
     default: printf("Bad args! Need 'r' or 'w'.\n"); break;
   }
 
@@ -100,7 +100,29 @@ static int cmd_p(char *args){
   int ret = expr(args, &success);
   
   if(success)
-    printf("%d\n", ret);
+    printf("%u\n", ret);
+  return 0;
+}
+
+static int cmd_w(char *args){
+  if(args==NULL) {
+    printf("Bad args!\n");
+    return 0;
+  } 
+
+  if(!add_wp(args)){
+    printf("set watch point failed\n");
+  }
+  return 0;
+}
+
+static int cmd_d(char *args){
+  int n;
+  if(args==NULL || sscanf(args, "%d", &n)!=1){
+    printf("Bad args!\n");
+    return 0;
+  }
+  delete_wp(n);
   return 0;
 }
 
@@ -127,8 +149,10 @@ static struct {
           "\t* N: The repeat count.\n"
           "\t* EXPR: The address from expression.\n",
      cmd_x},
-    {"p", "Print value of expression EXPR. Usage: p EXPR.\n", cmd_p}
-    };
+    {"p", "Print value of expression EXPR. Usage: p EXPR.\n", cmd_p},
+    {"w", "Set a watchpoint for an expression. Usage: w EXPR\n", cmd_w},
+    {"d", "Delete a watchpoint for a number. Usage: w Number\n", cmd_d},
+  };
 
 #define NR_CMD ARRLEN(cmd_table)
 
