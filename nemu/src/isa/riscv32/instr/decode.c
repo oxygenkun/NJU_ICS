@@ -12,28 +12,28 @@ static uint32_t get_instr(Decode *s) {
 #define def_DopHelper(name) \
   void concat(decode_op_, name) (Decode *s, Operand *op, word_t val, bool flag)
 
-static decode_op_i(Decode *s, Operand *op, word_t val, bool flag) {
+static def_DopHelper(i) {
   op->imm = val;
 }
 
-static decode_op_r(Decode *s, Operand *op, word_t val, bool flag) {
+static def_DopHelper(r) {
   bool is_write = flag;
   static word_t zero_null = 0;
   op->preg = (is_write && val == 0) ? &zero_null : &gpr(val);
 }
 
-static decode_I(Decode *s, int width) {
+static def_DHelper(I) {
   decode_op_r(s, id_src1, s->isa.instr.i.rs1, false);
   decode_op_i(s, id_src2, s->isa.instr.i.simm11_0, false);
   decode_op_r(s, id_dest, s->isa.instr.i.rd, true);
 }
 
-static decode_U(Decode *s, int width) {
+static def_DHelper(U) {
   decode_op_i(s, id_src1, s->isa.instr.u.imm31_12 << 12, true);
   decode_op_r(s, id_dest, s->isa.instr.u.rd, true);
 }
 
-static decode_S(Decode *s, int width) {
+static def_DHelper(S) {
   decode_op_r(s, id_src1, s->isa.instr.s.rs1, false);
   sword_t simm = (s->isa.instr.s.simm11_5 << 5) | s->isa.instr.s.imm4_0;
   decode_op_i(s, id_src2, simm, false);
@@ -51,8 +51,6 @@ def_THelper(store) {
 }
 
 def_THelper(main) {
-  // def_INSTR_IDTAB : table with ID, need use second class table to search
-  // def_INSTR_TAB : directly search
   def_INSTR_IDTAB("??????? ????? ????? ??? ????? 00000 11", I     , load);
   def_INSTR_IDTAB("??????? ????? ????? ??? ????? 01000 11", S     , store);
   def_INSTR_IDTAB("??????? ????? ????? ??? ????? 01101 11", U     , lui);
