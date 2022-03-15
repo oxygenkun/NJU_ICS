@@ -5,6 +5,7 @@
 #include "sdb.h"
 #include <utils.h>
 #include <memory/paddr.h>
+#include <debug.h>
 
 static int is_batch_mode = false;
 
@@ -126,6 +127,29 @@ static int cmd_d(char *args){
   return 0;
 }
 
+static int cmd_file(char *args){
+  // todo: clear status
+  char img_file[4096];
+  if(args==NULL || sscanf(args, "%s", img_file)!=1){
+    printf("Bad args!\n");
+    return 0;
+  }
+  FILE *fp = fopen(args, "rb");
+  Assert(fp, "Can not open '%s'", img_file);
+
+  fseek(fp, 0, SEEK_END);
+  long size = ftell(fp);
+
+  Log("The image is %s, size = %ld", img_file, size);
+
+  fseek(fp, 0, SEEK_SET);
+  int ret = fread(guest_to_host(RESET_VECTOR), size, 1, fp);
+  assert(ret == 1);
+
+  fclose(fp);
+  return size;
+}
+
 static int cmd_help(char *args);
 
 static struct {
@@ -152,6 +176,7 @@ static struct {
     {"p", "Print value of expression EXPR. Usage: p EXPR.\n", cmd_p},
     {"w", "Set a watchpoint for an expression. Usage: w EXPR\n", cmd_w},
     {"d", "Delete a watchpoint for a number. Usage: w Number\n", cmd_d},
+    {"file", "Add runable file\n", cmd_file},
   };
 
 #define NR_CMD ARRLEN(cmd_table)
