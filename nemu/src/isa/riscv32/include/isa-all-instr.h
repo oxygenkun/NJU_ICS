@@ -4,7 +4,9 @@
 #define INSTR_LIST(f) \
     f(lui) f(auipc) \
     f(jal) f(jalr)\
-    f(addi) \
+    f(beq) f(bne) f(blt) f(bltu) f(bge) f(bgeu) \
+    f(addi) f(slti) f(sltiu) f(slli)\
+    f(add) f(sub) f(slt) f(sltu) f(xor) f(or) f(and)\
     f(lw) f(sw) \
     f(inv) f(nemu_trap)
 
