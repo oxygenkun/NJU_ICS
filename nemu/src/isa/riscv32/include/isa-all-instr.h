@@ -7,7 +7,7 @@
     f(beq) f(bne) f(blt) f(bltu) f(bge) f(bgeu) \
     f(addi) f(slti) f(sltiu) f(slli)\
     f(add) f(sub) f(slt) f(sltu) f(xor) f(or) f(and) f(sll) f(srl) f(sra)\
-    f(lw) f(sw) \
+    f(lw) f(lh) f(lb) f(lhu) f(lbu) f(sw) f(sh) f(sb)\
     f(inv) f(nemu_trap)
 
 
