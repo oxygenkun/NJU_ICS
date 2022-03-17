@@ -19,6 +19,29 @@ static bool g_print_step = false;
 const rtlreg_t rzero = 0;
 rtlreg_t tmp_reg[4];
 
+#ifdef CONFIG_ITRACE_COND
+// iringbuff
+#define RINGBUFF_LINES 32
+#define RINGBUFF_WIDTH 128
+static char i_ringbuff[RINGBUFF_LINES][RINGBUFF_WIDTH] = {};
+static int buff_endline = 0;
+inline static int next_(int line) {
+  return (line + 1) % RINGBUFF_LINES;
+}
+inline static int prev_(int line) {
+  return (line + RINGBUFF_LINES - 1) % RINGBUFF_LINES;
+}
+static void buff_append(char *s) {
+  strcpy(i_ringbuff[buff_endline], s);
+  buff_endline = next_(buff_endline);
+}
+void ringbuff_print(){
+  for(int i=0; i<RINGBUFF_LINES && strcmp(i_ringbuff[i], "")!=0; ++i){
+    printf("%s %s\n", next_(i)==buff_endline?"---->\t":"\t", i_ringbuff[i]);
+  }
+}
+#endif
+
 void device_update();
 void fetch_decode(Decode *s, vaddr_t pc);
 bool wp_changed();
@@ -27,6 +50,7 @@ bool wp_changed();
 static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 #ifdef CONFIG_ITRACE_COND
   if (ITRACE_COND) log_write("%s\n", _this->logbuf);
+  buff_append(_this->logbuf);
 #endif
   if (g_print_step) { IFDEF(CONFIG_ITRACE, puts(_this->logbuf)); }
   IFDEF(CONFIG_DIFFTEST, difftest_step(_this->pc, dnpc));
@@ -63,6 +87,9 @@ static void statistic() {
 
 void assert_fail_msg() {
   isa_reg_display();
+#ifdef CONFIG_ITRACE_COND
+  ringbuff_print();
+#endif
   statistic();
 }
 
@@ -127,6 +154,9 @@ void cpu_exec(uint64_t n) {
            (nemu_state.halt_ret == 0 ? ASNI_FMT("HIT GOOD TRAP", ASNI_FG_GREEN) :
             ASNI_FMT("HIT BAD TRAP", ASNI_FG_RED))),
           nemu_state.halt_pc);
+#ifdef CONFIG_ITRACE_COND
+  ringbuff_print();
+#endif   
       // fall through
     case NEMU_QUIT: statistic();
   }
