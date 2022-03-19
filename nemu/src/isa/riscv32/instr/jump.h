@@ -3,10 +3,14 @@
 #include <rtl/rtl.h>
 #include <common.h>
 
+#include "../../../monitor/ftracer/ftrace.h"
+
 def_EHelper(jal) {
   rtl_addi(s, s0, &s->pc, 4);
   rtl_addi(s, &s->dnpc, &s->pc, id_src1->imm);
   rtl_addi(s, ddest, s0, 0);
+  // ftrace
+  stack_call(s->pc, s->dnpc);
 }
 
 def_EHelper(jalr) {
@@ -14,6 +18,12 @@ def_EHelper(jalr) {
   rtl_addi(s, &s->dnpc, dsrc1, id_src2->imm);
   rtl_andi(s, &s->dnpc, &s->dnpc, ~1);
   rtl_addi(s, ddest, s0, 0);
+  // ftrace
+  if (s->isa.instr.i.rd == 0 && s->isa.instr.i.rs1 == 1 && s->isa.instr.i.simm11_0 == 0){//Ret
+    stack_return(s->pc, s->dnpc);
+  }else{
+    stack_call(s->pc, s->dnpc);
+  }
 }
 
 def_EHelper(beq) {

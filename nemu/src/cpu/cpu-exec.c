@@ -86,6 +86,9 @@ static void statistic() {
 }
 
 void assert_fail_msg() {
+#ifdef CONFIG_FTRACE_COND
+  print_stack_trace();
+#endif
   isa_reg_display();
 #ifdef CONFIG_ITRACE_COND
   ringbuff_print();

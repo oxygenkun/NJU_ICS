@@ -7,6 +7,8 @@
 #include <memory/paddr.h>
 #include <debug.h>
 
+#include "../ftracer/ftrace.h"
+
 static int is_batch_mode = false;
 
 void init_regex();
@@ -150,6 +152,11 @@ static int cmd_file(char *args){
   return size;
 }
 
+static int cmd_s(char *args) {
+  print_stack_trace();
+  return 0;
+}
+
 static int cmd_help(char *args);
 
 static struct {
@@ -177,6 +184,7 @@ static struct {
     {"w", "Set a watchpoint for an expression. Usage: w EXPR\n", cmd_w},
     {"d", "Delete a watchpoint for a number. Usage: w Number\n", cmd_d},
     {"file", "Add runable file\n", cmd_file},
+    {"s", "Print stack call", cmd_s},
   };
 
 #define NR_CMD ARRLEN(cmd_table)
