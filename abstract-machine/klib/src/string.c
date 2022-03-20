@@ -4,57 +4,8 @@
 
 #if !defined(__ISA_NATIVE__) || defined(__NATIVE_USE_KLIB__)
 
-size_t strlen(const char *s) {
-  size_t count = 0;
-  while (*s) { ++count; ++s; }
-  return count;
-}
-
-char *strcpy(char *dst, const char *src) {
-  size_t len = strlen(src);
-  memcpy(dst, src, len+1);
-  return dst;
-}
-
-char *strncpy(char *dst, const char *src, size_t n) {
-  memcpy(dst, src, n);
-  return dst;
-}
-
-char *strcat(char *dst, const char *src) {
-  strcpy(dst+strlen(dst), src);
-  return dst;
-}
-
-int strcmp(const char *s1, const char *s2) {
-  unsigned char c1, c2;
-  do
-    {
-      c1 = (unsigned char) *s1++;
-      c2 = (unsigned char) *s2++;
-      if (c1 == '\0')
-        return c1 - c2;
-    }
-  while (c1 == c2);
-  return c1 - c2;
-}
-
-int strncmp(const char *s1, const char *s2, size_t n) {
-  unsigned char c1, c2;
-  do
-    {
-      c1 = (unsigned char) *s1++;
-      c2 = (unsigned char) *s2++;
-      if (c1 == '\0')
-        return c1 - c2;
-    }
-  while (--n && (c1 == c2));
-  return c1 - c2;
-}
-
 typedef unsigned int op_t;
 #define OPSIZ 4
-
 void *memset(void *s, int c, size_t n) {
   // shim
   void *dstpp = s;
@@ -115,29 +66,6 @@ void *memset(void *s, int c, size_t n) {
   return dstpp;
 }
 
-void *memmove(void *dst, const void *src, size_t n) {
-  //解决内存重叠的问题，就需要加上逆序拷贝，适用于任何类型
-  unsigned char *dest_tmp = (unsigned char *)dst;
-  const unsigned char *src_tmp = (const unsigned char *)src;
-  assert(dst && src);
-  if (src_tmp > dest_tmp || src_tmp + n <= dest_tmp) //情况1和情况2
-  {
-    while (n--) //正序复制
-    {
-      *dest_tmp++ = *src_tmp++;
-    }
-  } else //情况3，逆序赋值
-  {
-    //逆序打印，需要把指针调整位置
-    dest_tmp += n - 1;
-    src_tmp += n - 1;
-    while (n--) {
-      *(dest_tmp--) = *(src_tmp--);
-    }
-  }
-  return dst;
-}
-
 void *memcpy(void *out, const void *in, size_t n) {
   char *dstp = (char*) out;
   char *srcp = (char*) in;
@@ -145,6 +73,53 @@ void *memcpy(void *out, const void *in, size_t n) {
   for (i = 0; i < n; ++i)
     dstp[i] = srcp[i];
   return out;
+}
+
+
+static inline void move_byte_forward(uint8_t *dest_m, const uint8_t *src_m,
+                                     size_t count) {
+  for (size_t offset = 0; count; --count, ++offset)
+    dest_m[offset] = src_m[offset];
+}
+
+static inline void move_byte_backward(uint8_t *dest_m, const uint8_t *src_m,
+                                      size_t count) {
+  for (size_t offset = count - 1; count; --count, --offset)
+    dest_m[offset] = src_m[offset];
+}
+
+// fork llvm-libc
+void *memmove(void *dest, const void *src, size_t n) {
+  uint8_t *dest_temp = dest;
+  const uint8_t *src_temp = src;
+  assert(dest && src); ;// not null
+
+  // If the distance between src_c and dest_c is equal to or greater
+  // than count (integerAbs(src_c - dest_c) >= count), they would not overlap.
+  // e.g.   greater     equal       overlapping
+  //        [12345678]  [12345678]  [12345678]
+  // src_c: [_ab_____]  [_ab_____]  [_ab_____]
+  // dest_c:[_____yz_]  [___yz___]  [__yz____]
+  if (abs(src_temp - dest_temp)>= n)
+    return memcpy(dest, src, n);
+  
+
+  // Overlap cases.
+  // If dest_c starts before src_c (dest_c < src_c), copy forward(pointer add 1)
+  // from beginning to end.
+  // If dest_c starts after src_c (dest_c > src_c), copy backward(pointer add
+  // -1) from end to beginning.
+  // If dest_c and src_c start at the same address (dest_c == src_c),
+  // just return dest.
+  // e.g.    forward      backward
+  //             *-->        <--*
+  // src_c : [___abcde_]  [_abcde___]
+  // dest_c: [_abc--___]  [___--cde_]
+  if (dest_temp < src_temp)
+    move_byte_forward(dest_temp, src_temp, n);
+  if (dest_temp > src_temp)
+    move_byte_backward(dest_temp, src_temp, n);
+  return dest;
 }
 
 int memcmp(const void *s1, const void *s2, size_t n) {
@@ -173,5 +148,55 @@ int memcmp(const void *s1, const void *s2, size_t n) {
   // if i == length, then we have passed the test
   return (n == 0) ? 0 : (*(uint8_t *)p1 - *(uint8_t *)p2);
 }
+
+size_t strlen(const char *s) {
+  size_t count = 0;
+  while (*s) { ++count; ++s; }
+  return count;
+}
+
+char *strcpy(char *dst, const char *src) {
+  size_t len = strlen(src);
+  memcpy(dst, src, len+1);
+  return dst;
+}
+
+char *strncpy(char *dst, const char *src, size_t n) {
+  memcpy(dst, src, n);
+  return dst;
+}
+
+char *strcat(char *dst, const char *src) {
+  strcpy(dst+strlen(dst), src);
+  return dst;
+}
+
+int strcmp(const char *s1, const char *s2) {
+  unsigned char c1, c2;
+  do
+    {
+      c1 = (unsigned char) *s1++;
+      c2 = (unsigned char) *s2++;
+      if (c1 == '\0')
+        return c1 - c2;
+    }
+  while (c1 == c2);
+  return c1 - c2;
+}
+
+int strncmp(const char *s1, const char *s2, size_t n) {
+  unsigned char c1, c2;
+  do
+    {
+      c1 = (unsigned char) *s1++;
+      c2 = (unsigned char) *s2++;
+      if (c1 == '\0')
+        return c1 - c2;
+    }
+  while (--n && (c1 == c2));
+  return c1 - c2;
+}
+
+
 
 #endif
