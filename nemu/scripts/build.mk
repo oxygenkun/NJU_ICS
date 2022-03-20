@@ -35,13 +35,13 @@ $(OBJ_DIR)/%.o: %.c
 	@$(CC) $(CFLAGS) -E $< | \
 		grep -ve '^#' | \
 		clang-format - > $(basename $@).i
-	$(call call_fixdep, $(@:.o=.d), $@)
+	$(call call_fixdep, $(@:.o=$(OBJ_DIR)/.d), $@)
 
 $(OBJ_DIR)/%.o: %.cc
 	@echo + CXX $<
 	@mkdir -p $(dir $@)
 	@$(CXX) $(CFLAGS) $(CXXFLAGS) -c -o $@ $<
-	$(call call_fixdep, $(@:.o=.d), $@)
+	$(call call_fixdep, $(@:.o=$(OBJ_DIR)/.d), $@)
 
 # Depencies
 -include $(OBJS:.o=.d)
