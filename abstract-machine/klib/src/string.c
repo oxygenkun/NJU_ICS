@@ -75,7 +75,6 @@ void *memcpy(void *out, const void *in, size_t n) {
   return out;
 }
 
-
 static inline void move_byte_forward(uint8_t *dest_m, const uint8_t *src_m,
                                      size_t count) {
   for (size_t offset = 0; count; --count, ++offset)
@@ -100,10 +99,9 @@ void *memmove(void *dest, const void *src, size_t n) {
   //        [12345678]  [12345678]  [12345678]
   // src_c: [_ab_____]  [_ab_____]  [_ab_____]
   // dest_c:[_____yz_]  [___yz___]  [__yz____]
-  if (abs(src_temp - dest_temp)>= n)
+  if (abs((char *)dest - (char *)src)>= n)
     return memcpy(dest, src, n);
   
-
   // Overlap cases.
   // If dest_c starts before src_c (dest_c < src_c), copy forward(pointer add 1)
   // from beginning to end.
