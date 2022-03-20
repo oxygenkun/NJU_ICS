@@ -7,6 +7,9 @@ STACK_ENTRY *end = &header;
 
 void init_ftracer(const char* elf_file){
   #ifdef CONFIG_FTRACE
+  if(elf_file==NULL)
+  return;
+  
     init_elf(elf_file);
     // init header
     header.des_info = NULL;
