@@ -166,7 +166,12 @@ config FTRACE
 config FTRACE_COND
   depends on FTRACE
   string "Only trace function when the condition is true"
-  default "true" 
+  default "true"
+
+config DTRACE
+  depends on TRACE && TARGET_NATIVE_ELF && ENGINE_INTERPRETER
+  bool "Enable IO device call/return tracer"
+  default y
 
 config DIFFTEST
   depends on TARGET_NATIVE_ELF
