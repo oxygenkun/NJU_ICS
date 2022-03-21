@@ -7,13 +7,12 @@
 
 int printf(const char *fmt, ...) {
   char buffer[2048];
-  int done = sprintf(buffer, fmt);
+  va_list ap;
+  va_start(ap, fmt);
+  int ret = vsprintf(buffer, fmt, ap);
+  va_end(ap);
   putstr(buffer);
-  return done;
-}
-
-int vsprintf(char *out, const char *fmt, va_list ap) {
-  return vsnprintf(out, SIZE_MAX, fmt, ap);
+  return ret;
 }
 
 int sprintf(char *out, const char *fmt, ...) { 
@@ -23,6 +22,10 @@ int sprintf(char *out, const char *fmt, ...) {
   ret = vsprintf(out, fmt, ap);
   va_end(ap);
   return ret;
+}
+
+int vsprintf(char *out, const char *fmt, va_list ap) {
+  return vsnprintf(out, SIZE_MAX, fmt, ap);
 }
 
 int snprintf(char *out, size_t n, const char *fmt, ...) {
@@ -41,11 +44,11 @@ int vsnprintf(char *out, size_t n, const char *fmt, va_list ap) {
   size_t fmt_i = 0, out_i = 0;
   bool exit = false;
 
-// self define macro
+// self-define macro
 #define fmt_c (fmt[fmt_i])
 #define out_c (out[out_i])
 #define append_next(c) do { out[out_i++] = c ; exit = (fmt_c == '\0') || (out_i > n); } while (0);                      
-  // end define
+// end define
 
   while (!exit) {
     if (fmt_c != '%') {
@@ -67,7 +70,7 @@ int vsnprintf(char *out, size_t n, const char *fmt, va_list ap) {
       break;
     }
     case 'c': {
-      char character = va_arg(ap, int);
+      char character = (char)va_arg(ap, int);
       append_next(character);
       break;
     }
