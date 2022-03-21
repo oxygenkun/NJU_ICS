@@ -7,14 +7,8 @@
 
 int printf(const char *fmt, ...) {
   char buffer[2048];
-  va_list arg;
-  va_start(arg, fmt);
-
-  int done = vsprintf(buffer, fmt, arg);
-
+  int done = sprintf(buffer, fmt);
   putstr(buffer);
-
-  va_end(arg);
   return done;
 }
 
